@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Borno — দ্রুত, স্মুথ ও সম্পূর্ণ অফলাইন বাংলা + English কীবোর্ড। Ridmik-স্টাইল ফোনেটিক বাংলা, নিখুঁত বর্ণমালা, সফট ক্লিক আর ভয়েস ইনপুট।">
+  <meta name="theme-color" content="#07110C">
+  <meta name="color-scheme" content="dark">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Borno">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Borno — বাংলা লেখা, নিজের ছন্দে">
+  <meta property="og:description" content="Ridmik-স্টাইল ফোনেটিক বাংলা, নিখুঁত কী-ফিডব্যাক আর অফলাইন ভয়েস — সব এক কীবোর্ডে।">
+  <meta property="og:image" content="social-preview.png">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+  <title>Borno — বাংলা লেখা, নিজের ছন্দে</title>
+
+  <style>
+    :root {
+      --page: #07110c;
+      --lime: #cefa6d;
+      --cream: #f5f2e8;
+      --muted: #91a396;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+      background: var(--page);
+      color: var(--cream);
+      -webkit-font-smoothing: antialiased;
+    }
+    body { overflow-x: hidden; }
+    #boot-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background:
+        radial-gradient(circle at 50% 38%, rgba(94, 139, 73, 0.22), transparent 32%),
+        #07110c;
+      transition: opacity 420ms ease, visibility 420ms ease;
+    }
+    #boot-loader.is-hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+    .boot-inner { display: flex; flex-direction: column; align-items: center; transform: translateY(-2vh); }
+    .boot-icon {
+      width: 78px;
+      height: 78px;
+      border-radius: 22px;
+      box-shadow: 0 18px 60px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(206, 250, 109, 0.14);
+      animation: boot-arrive 700ms cubic-bezier(.2,.8,.2,1) both;
+    }
+    .boot-name {
+      margin-top: 20px;
+      font-family: Manrope, Inter, system-ui, -apple-system, sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      color: var(--cream);
+    }
+    .boot-bn {
+      margin-top: 5px;
+      font-family: "Hind Siliguri", "Noto Sans Bengali", system-ui, sans-serif;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.4px;
+    }
+    .boot-track {
+      width: 124px;
+      height: 2px;
+      margin-top: 24px;
+      border-radius: 99px;
+      overflow: hidden;
+      background: rgba(255,255,255,.09);
+    }
+    .boot-track:after {
+      content: "";
+      display: block;
+      width: 44%;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--lime);
+      animation: boot-slide 1.35s cubic-bezier(.6,0,.3,1) infinite;
+    }
+    @keyframes boot-slide {
+      0% { transform: translateX(-120%); }
+      55% { transform: translateX(220%); }
+      100% { transform: translateX(220%); }
+    }
+    @keyframes boot-arrive {
+      from { opacity: 0; transform: scale(.92) translateY(8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .boot-track:after, .boot-icon { animation: none; }
+      #boot-loader { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="boot-loader" role="status" aria-label="Borno কীবোর্ড লোড হচ্ছে">
+    <div class="boot-inner">
+      <img class="boot-icon" src="icons/Icon-512.png" alt="">
+      <div class="boot-name">Borno</div>
+      <div class="boot-bn">বাংলা লেখা, নিজের ছন্দে</div>
+      <div class="boot-track"></div>
+    </div>
+  </div>
+
+  <script>
+    // -----------------------------------------------------------------------
+    // Borno web bridge — intentionally tiny, dependency-free and offline-safe.
+    // Sound is synthesised locally with WebAudio; no network or audio files.
+    // -----------------------------------------------------------------------
+    (function () {
+      var audioContext = null;
+      var noiseBuffer = null;
+
+      function ensureAudio() {
+        if (!audioContext) {
+          var Ctx = window.AudioContext || window.webkitAudioContext;
+          if (!Ctx) return null;
+          audioContext = new Ctx();
+        }
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(function () {});
+        }
+        return audioContext;
+      }
+
+      window.bornoTap = function () {
+        try {
+          var ctx = ensureAudio();
+          if (!ctx) return;
+          var now = ctx.currentTime;
+
+          var osc = ctx.createOscillator();
+          var oscGain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(196, now);
+          osc.frequency.exponentialRampToValueAtTime(96, now + 0.042);
+          oscGain.gain.setValueAtTime(0.0001, now);
+          oscGain.gain.exponentialRampToValueAtTime(0.045, now + 0.004);
+          oscGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.055);
+          osc.connect(oscGain).connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 0.06);
+
+          if (!noiseBuffer) {
+            noiseBuffer = ctx.createBuffer(1, Math.ceil(ctx.sampleRate * 0.035), ctx.sampleRate);
+            var data = noiseBuffer.getChannelData(0);
+            for (var i = 0; i < data.length; i++) {
+              data[i] = (Math.random() * 2 - 1) * (1 - i / data.length);
+            }
+          }
+          var noise = ctx.createBufferSource();
+          noise.buffer = noiseBuffer;
+          var filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.value = 2200;
+          filter.Q.value = 0.8;
+          var noiseGain = ctx.createGain();
+          noiseGain.gain.setValueAtTime(0.012, now);
+          noiseGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.031);
+          noise.connect(filter).connect(noiseGain).connect(ctx.destination);
+          noise.start(now);
+          noise.stop(now + 0.034);
+        } catch (error) {
+          // Keyboard input must keep working even when audio is unavailable.
+        }
+      };
+
+      window.bornoVibrate = function () {
+        try {
+          if (navigator.vibrate) navigator.vibrate(7);
+        } catch (error) {}
+      };
+
+      // ------------------------------- voice -------------------------------
+      var SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+      var recognizer = null;
+      var voiceState = { active: false, transcript: '', error: '' };
+
+      window.bornoVoiceSupported = function () { return !!SpeechRecognitionCtor; };
+      window.bornoVoiceActive = function () { return voiceState.active; };
+      window.bornoVoiceTranscript = function () { return voiceState.transcript; };
+      window.bornoVoiceError = function () { return voiceState.error; };
+
+      window.bornoStartVoice = function () {
+        if (!SpeechRecognitionCtor) {
+          voiceState.error = 'unsupported';
+          return;
+        }
+        try {
+          if (recognizer) {
+            try { recognizer.abort(); } catch (error) {}
+          }
+          voiceState = { active: true, transcript: '', error: '' };
+
+          var begin = function (processLocally) {
+            recognizer = new SpeechRecognitionCtor();
+            recognizer.lang = 'bn-BD';
+            recognizer.continuous = true;
+            recognizer.interimResults = true;
+            recognizer.maxAlternatives = 1;
+            if (processLocally) {
+              try { recognizer.processLocally = true; } catch (error) {}
+            }
+            recognizer.onresult = function (event) {
+              var text = '';
+              for (var i = 0; i < event.results.length; i++) {
+                text += event.results[i][0].transcript;
+              }
+              voiceState.transcript = text.trim();
+            };
+            recognizer.onerror = function (event) {
+              voiceState.error = event.error || 'unknown';
+              voiceState.active = false;
+            };
+            recognizer.onend = function () {
+              voiceState.active = false;
+            };
+            recognizer.start();
+          };
+
+          // Prefer an on-device Bangla recogniser when the browser exposes the
+          // experimental local speech API. Otherwise use the OS default engine.
+          if (typeof SpeechRecognitionCtor.available === 'function') {
+            SpeechRecognitionCtor.available({ langs: ['bn-BD'], processLocally: true })
+              .then(function (status) { begin(status === 'available'); })
+              .catch(function () { begin(false); });
+          } else {
+            begin(false);
+          }
+        } catch (error) {
+          voiceState.active = false;
+          voiceState.error = 'start-failed';
+        }
+      };
+
+      window.bornoStopVoice = function () {
+        voiceState.active = false;
+        try { if (recognizer) recognizer.stop(); } catch (error) {}
+      };
+
+      // -------------------------------- PWA --------------------------------
+      var installPrompt = null;
+      window.addEventListener('beforeinstallprompt', function (event) {
+        event.preventDefault();
+        installPrompt = event;
+      });
+      window.addEventListener('appinstalled', function () { installPrompt = null; });
+
+      window.bornoPwaCanInstall = function () { return !!installPrompt; };
+      window.bornoPwaStandalone = function () {
+        return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+      };
+      window.bornoPwaInstall = function () {
+        if (!installPrompt) return false;
+        var prompt = installPrompt;
+        installPrompt = null;
+        try { prompt.prompt(); } catch (error) { return false; }
+        return true;
+      };
+
+      // ---------------------------- preferences ----------------------------
+      window.bornoGetPreference = function (key) {
+        try { return localStorage.getItem('borno.' + key) || ''; } catch (error) { return ''; }
+      };
+      window.bornoSetPreference = function (key, value) {
+        try { localStorage.setItem('borno.' + key, value); } catch (error) {}
+      };
+
+      // Remove the boot screen as soon as Flutter paints its first frame.
+      var loader = document.getElementById('boot-loader');
+      var hideLoader = function () {
+        if (!loader) return;
+        loader.classList.add('is-hidden');
+        window.setTimeout(function () {
+          if (loader && loader.parentNode) loader.parentNode.removeChild(loader);
+        }, 500);
+      };
+      window.addEventListener('flutter-first-frame', hideLoader);
+      window.addEventListener('load', function () {
+        window.setTimeout(hideLoader, 14000);
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.register('sw.js', { scope: './' }).catch(function () {});
+        }
+      });
+    })();
+  </script>
+
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

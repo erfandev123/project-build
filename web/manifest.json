@@ -1,0 +1,42 @@
+{
+  "name": "Borno — Bangla Keyboard",
+  "short_name": "Borno",
+  "description": "দ্রুত, স্মুথ ও অফলাইন বাংলা + English কীবোর্ড। Ridmik-স্টাইল ফোনেটিক বাংলা, নিখুঁত বর্ণমালা, সফট ক্লিক ও ভয়েস ইনপুট।",
+  "lang": "bn",
+  "dir": "ltr",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#07110C",
+  "theme_color": "#07110C",
+  "categories": ["productivity", "utilities"],
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "icons/Icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/Icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/Icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "icons/Icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
