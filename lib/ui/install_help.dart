@@ -8,11 +8,14 @@ import 'widgets.dart';
 /// Installs Borno when the browser exposes an install prompt; otherwise opens
 /// a short, platform-specific guide. No fake "installed" state.
 Future<void> installBorno(BuildContext context) async {
+  if (PlatformService.isAndroid) {
+    await showAndroidKeyboardSetupSheet(context);
+    return;
+  }
   if (PlatformService.pwaStandalone) {
     showBornoToast(context, 'Borno ইতিমধ্যে হোম স্ক্রিনে ইনস্টল করা আছে।');
     return;
   }
-
   if (PlatformService.pwaCanInstall && PlatformService.installPwa()) {
     showBornoToast(
       context,
@@ -22,6 +25,132 @@ Future<void> installBorno(BuildContext context) async {
   }
 
   await showInstallHelpSheet(context);
+}
+
+Future<void> showAndroidKeyboardSetupSheet(BuildContext context) {
+  return showModalBottomSheet<void>(
+    context: context,
+    backgroundColor: Colors.transparent,
+    barrierColor: const Color(0xC2050B08),
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (context) => const _AndroidKeyboardSetupSheet(),
+  );
+}
+
+class _AndroidKeyboardSetupSheet extends StatelessWidget {
+  const _AndroidKeyboardSetupSheet();
+
+  Future<void> _openSettings(BuildContext context) async {
+    try {
+      await PlatformService.openInputMethodSettings();
+    } catch (error) {
+      if (context.mounted) {
+        showBornoToast(context, 'কীবোর্ড সেটিংস খোলা যায়নি: $error');
+      }
+    }
+  }
+
+  Future<void> _showPicker(BuildContext context) async {
+    try {
+      await PlatformService.showInputMethodPicker();
+    } catch (error) {
+      if (context.mounted) {
+        showBornoToast(context, 'কীবোর্ড বাছাই করা যায়নি: $error');
+      }
+    }
+  }
+
+  Future<void> _requestMicrophone(BuildContext context) async {
+    try {
+      final granted = await PlatformService.requestMicrophonePermission();
+      if (context.mounted) {
+        showBornoToast(
+          context,
+          granted
+              ? 'ভয়েস টাইপিংয়ের মাইক অনুমতি চালু হয়েছে।'
+              : 'মাইক অনুমতি দেওয়া হয়নি; সেটিংস থেকে অনুমতি দিন।',
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        showBornoToast(context, 'মাইক অনুমতি নেওয়া যায়নি: $error');
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(
+          12,
+          0,
+          12,
+          12 + MediaQuery.paddingOf(context).bottom,
+        ),
+        child: Material(
+          color: BornoColors.panel,
+          borderRadius: BorderRadius.circular(26),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(22, 24, 22, 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Android কীবোর্ড চালু করুন',
+                  style: bengali(size: 20, weight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'সিস্টেমের যেকোনো অ্যাপে Borno দিয়ে লিখতে প্রথমে কীবোর্ডটি enable করুন, তারপর picker থেকে Borno বেছে নিন।',
+                  style: bengali(
+                    size: 13,
+                    color: BornoColors.muted,
+                    height: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 18),
+                ActionButton(
+                  label: '১. Settings-এ Borno enable করুন',
+                  icon: Icons.settings_outlined,
+                  onPressed: () => _openSettings(context),
+                ),
+                const SizedBox(height: 9),
+                ActionButton(
+                  label: '২. Borno Keyboard বেছে নিন',
+                  icon: Icons.keyboard_alt_outlined,
+                  primary: false,
+                  onPressed: () => _showPicker(context),
+                ),
+                const SizedBox(height: 9),
+                TextButton.icon(
+                  onPressed: () => _requestMicrophone(context),
+                  icon: const Icon(Icons.mic_none_rounded, size: 18),
+                  label: Text(
+                    'ভয়েস টাইপিংয়ের জন্য মাইক অনুমতি',
+                    style: bengali(size: 12, weight: FontWeight.w600),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: BornoColors.textSoft,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'কী চাপলে অক্ষর লিখবে, ধরে রাখলে ছোট বিকল্প অক্ষর দেখাবে।',
+                  textAlign: TextAlign.center,
+                  style: bengali(size: 10.5, color: BornoColors.mutedDeep),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 Future<void> showInstallHelpSheet(BuildContext context) {

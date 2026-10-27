@@ -44,10 +44,10 @@ void main() {
     double dx = 0,
     double dy = 0,
   }) async {
-    final finder = find.text(keyLabel);
-    expect(finder, findsOneWidget);
+    final finder = find.text(keyLabel).last;
+    expect(find.text(keyLabel), findsWidgets);
     final gesture = await tester.startGesture(tester.getCenter(finder));
-    await tester.pump(const Duration(milliseconds: 20));
+    await tester.pump(const Duration(milliseconds: 320));
     expect(find.byKey(_popupKey), findsOneWidget);
     if (dx != 0 || dy != 0) {
       await gesture.moveBy(Offset(dx, dy));
@@ -156,10 +156,33 @@ void main() {
     testWidgets('a tap inserts the primary character', (tester) async {
       final inserted = await pumpKeyboard(tester);
 
-      await pressAndSlide(tester, 'দ');
+      await tester.tap(find.text('দ'));
+      await tester.pumpAndSettle();
 
       expect(inserted, ['দ']);
       expect(find.byKey(_popupKey), findsNothing);
+    });
+
+    testWidgets('repeated taps insert repeated characters', (tester) async {
+      final inserted = await pumpKeyboard(tester);
+      final key = find.text('দ').last;
+
+      await tester.tap(key);
+      await tester.pumpAndSettle();
+      await tester.tap(key);
+      await tester.pumpAndSettle();
+
+      expect(inserted, ['দ', 'দ']);
+    });
+
+    testWidgets('voice status stays inline in the keyboard', (tester) async {
+      await pumpKeyboard(tester);
+
+      await tester.tap(find.bySemanticsLabel('বাংলা ভয়েস ইনপুট'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('শুনছি…'), findsOneWidget);
+      expect(find.byType(BottomSheet), findsNothing);
     });
 
     testWidgets('sliding right selects the next characters in order', (
@@ -190,7 +213,7 @@ void main() {
 
       final finder = find.text('র');
       final gesture = await tester.startGesture(tester.getCenter(finder));
-      await tester.pump(const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 320));
 
       expect(find.byKey(_popupKey), findsOneWidget);
       for (final choice in ['র', 'ড়', '্র', 'র্', 'র‍্য']) {
@@ -218,7 +241,7 @@ void main() {
     ) async {
       final inserted = await pumpKeyboard(tester, shift: true);
 
-      expect(find.text('ঐ'), findsOneWidget);
+      expect(find.text('ঐ'), findsNWidgets(2));
       expect(find.text('ঞ'), findsNothing);
 
       await pressAndSlide(tester, 'ঐ', dx: 46);
@@ -242,15 +265,15 @@ void main() {
       await pumpKeyboard(tester);
 
       expect(find.text('দ'), findsOneWidget);
-      expect(find.text('ধ'), findsNothing);
+      expect(find.text('ধ'), findsOneWidget);
 
       await tester.tap(find.bySemanticsLabel('শিফট চালু করুন'));
       await tester.pumpAndSettle();
 
       expect(find.text('দ'), findsNothing);
-      expect(find.text('ধ'), findsOneWidget);
+      expect(find.text('ধ'), findsNWidgets(2));
       expect(find.text('এ'), findsNothing);
-      expect(find.text('ঐ'), findsOneWidget);
+      expect(find.text('ঐ'), findsNWidgets(2));
     });
 
     testWidgets('keeps an edge popup inside the screen and above the key', (
@@ -261,7 +284,7 @@ void main() {
       final keyFinder = find.text('ো');
       final keyRect = tester.getRect(keyFinder);
       final gesture = await tester.startGesture(tester.getCenter(keyFinder));
-      await tester.pump(const Duration(milliseconds: 20));
+      await tester.pump(const Duration(milliseconds: 320));
 
       final popupRect = tester.getRect(find.byKey(_popupKey));
       expect(popupRect.left, greaterThanOrEqualTo(0));
@@ -317,6 +340,7 @@ class _KeyboardHarness extends StatefulWidget {
 
 class _KeyboardHarnessState extends State<_KeyboardHarness> {
   late bool _shift = widget.initialShift;
+  String _voiceStatus = '';
 
   @override
   Widget build(BuildContext context) {
@@ -338,11 +362,13 @@ class _KeyboardHarnessState extends State<_KeyboardHarness> {
       onPageChanged: (_) {},
       onCycleMode: () {},
       onSuggestion: (_) {},
-      onVoice: () {},
+      onVoice: () => setState(() => _voiceStatus = 'শুনছি…'),
       onOpenLayouts: () {},
       onOpenThemes: () {},
       onOpenSettings: () {},
       onToggleSound: () {},
+      voiceStatus: _voiceStatus,
+      onCloseVoice: () => setState(() => _voiceStatus = ''),
     );
   }
 }

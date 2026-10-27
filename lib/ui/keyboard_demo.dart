@@ -12,7 +12,6 @@ import 'install_help.dart';
 import 'keyboard.dart';
 import 'keyboard_data.dart';
 import 'settings_sheets.dart';
-import 'voice_sheet.dart';
 import 'widgets.dart';
 
 class KeyboardDemo extends StatefulWidget {
@@ -58,7 +57,9 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
   bool _hapticsOn = true;
   bool _previewOn = true;
   bool _hardwareFocused = false;
+  String _voiceStatus = '';
   Timer? _replyTimer;
+  Timer? _voicePoll;
   int _replyIndex = 0;
 
   KeyboardSkin get _skin => keyboardSkins[_skinIndex];
@@ -73,6 +74,8 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
   @override
   void dispose() {
     _replyTimer?.cancel();
+    _voicePoll?.cancel();
+    PlatformService.stopVoice();
     _focusNode
       ..removeListener(_onFocusChanged)
       ..dispose();
@@ -318,19 +321,63 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
     if (_soundOn) PlatformService.clickSound();
   }
 
-  Future<void> _openVoice() async {
+  void _openVoice() {
     if (_page != KeyboardPage.letters) {
       setState(() => _page = KeyboardPage.letters);
     }
-    final phrase = await showVoiceSheet(context, skin: _skin);
-    if (!mounted || phrase == null || phrase.trim().isEmpty) return;
+    if (_voiceStatus.isNotEmpty) {
+      _closeInlineVoice();
+      return;
+    }
+    if (PlatformService.isAndroid) {
+      setState(
+        () => _voiceStatus = 'আসল কীবোর্ডের 🎙 কী চাপুন; ভয়েস সেখানেই লিখবে',
+      );
+      return;
+    }
+    if (!PlatformService.voiceSupported) {
+      setState(() => _voiceStatus = 'এই ব্রাউজারে ভয়েস ইনপুট নেই');
+      return;
+    }
+    PlatformService.startVoice();
+    setState(() => _voiceStatus = 'শুনছি… কথা বলুন');
+    _voicePoll?.cancel();
+    _voicePoll = Timer.periodic(const Duration(milliseconds: 140), (_) {
+      if (!mounted) return;
+      final transcript = PlatformService.voiceTranscript.trim();
+      final active = PlatformService.voiceActive;
+      final error = PlatformService.voiceError;
+      if (error.isNotEmpty) {
+        setState(() => _voiceStatus = 'ভয়েস ইনপুটে সমস্যা হয়েছে: $error');
+        _voicePoll?.cancel();
+        return;
+      }
+      if (transcript.isNotEmpty && !active) {
+        _insertVoicePhrase(transcript);
+        _closeInlineVoice();
+        return;
+      }
+      final status = transcript.isNotEmpty ? transcript : 'শুনছি… কথা বলুন';
+      if (status != _voiceStatus) setState(() => _voiceStatus = status);
+    });
+  }
+
+  void _insertVoicePhrase(String phrase) {
     setState(() {
       final committed = _withRomanCommitted();
       _roman = '';
-      final needsSpace = committed.isNotEmpty && !committed.endsWith(' ');
+      final needsSpace =
+          committed.isNotEmpty && !RegExp(r'\s$').hasMatch(committed);
       _text = '$committed${needsSpace ? ' ' : ''}${phrase.trim()}';
     });
     _focusNode.requestFocus();
+  }
+
+  void _closeInlineVoice() {
+    _voicePoll?.cancel();
+    _voicePoll = null;
+    PlatformService.stopVoice();
+    if (mounted) setState(() => _voiceStatus = '');
   }
 
   Future<void> _onInstall() => installBorno(context);
@@ -439,6 +486,8 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
                     onOpenThemes: _openThemes,
                     onOpenSettings: _openSettings,
                     onToggleSound: _toggleSound,
+                    voiceStatus: _voiceStatus,
+                    onCloseVoice: _closeInlineVoice,
                   ),
                 ],
               ),

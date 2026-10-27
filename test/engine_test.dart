@@ -9,6 +9,7 @@ void main() {
       expect(BanglaPhonetic.convertWord('kemon'), 'কেমন');
       expect(BanglaPhonetic.convertWord('dhonnobad'), 'ধন্যবাদ');
       expect(BanglaPhonetic.convertWord('bhalobasha'), 'ভালোবাসা');
+      expect(BanglaPhonetic.convertWord('oneek'), 'অনেক');
     });
 
     test('keeps spaces and punctuation while converting a sentence', () {
@@ -34,6 +35,13 @@ void main() {
       );
       expect(suggestions, isNotEmpty);
       expect(suggestions.first, 'ভালো');
+
+      final locationSuggestions = WordBank.suggestions(
+        roman: 'ekh',
+        banglaWord: '',
+        english: false,
+      );
+      expect(locationSuggestions, contains('এখানে'));
     });
 
     test('returns English defaults when no query is present', () {

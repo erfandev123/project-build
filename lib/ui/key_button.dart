@@ -75,6 +75,8 @@ class _BornoKeyState extends State<BornoKey> {
   final LayerLink _link = LayerLink();
   final GlobalKey _keyBoxKey = GlobalKey();
   Timer? _holdTimer;
+  Timer? _previewTimer;
+  Timer? _choiceHoldTimer;
   Timer? _repeatTimer;
   bool _pressed = false;
   bool _hovered = false;
@@ -95,6 +97,8 @@ class _BornoKeyState extends State<BornoKey> {
   @override
   void dispose() {
     _holdTimer?.cancel();
+    _previewTimer?.cancel();
+    _choiceHoldTimer?.cancel();
     _repeatTimer?.cancel();
     if (_portal.isShowing) _portal.hide();
     super.dispose();
@@ -180,7 +184,11 @@ class _BornoKeyState extends State<BornoKey> {
     _choicePopupHeight = popupHeight;
 
     setState(() => _pressed = true);
-    if (!_portal.isShowing) _portal.show();
+    _choiceHoldTimer?.cancel();
+    _choiceHoldTimer = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted || !_choiceSelecting || _choiceCancelled) return;
+      if (!_portal.isShowing) _portal.show();
+    });
 
     if (widget.soundOn) PlatformService.clickSound();
     if (widget.hapticsOn) PlatformService.haptic();
@@ -232,6 +240,8 @@ class _BornoKeyState extends State<BornoKey> {
   }
 
   void _finishChoice() {
+    _choiceHoldTimer?.cancel();
+    _choiceHoldTimer = null;
     if (_portal.isShowing) _portal.hide();
     _choicePointer = null;
     _choiceStart = null;
@@ -244,7 +254,13 @@ class _BornoKeyState extends State<BornoKey> {
   void _onTapDown(TapDownDetails details) {
     if (_pressed) return;
     setState(() => _pressed = true);
-    if (_canPreview && !_portal.isShowing) _portal.show();
+    _previewTimer?.cancel();
+    if (_canPreview) {
+      _previewTimer = Timer(const Duration(milliseconds: 300), () {
+        if (!_pressed || !mounted || _portal.isShowing) return;
+        _portal.show();
+      });
+    }
 
     if (widget.soundOn) PlatformService.clickSound();
     if (widget.hapticsOn) PlatformService.haptic();
@@ -266,6 +282,8 @@ class _BornoKeyState extends State<BornoKey> {
   void _endPress() {
     _holdTimer?.cancel();
     _holdTimer = null;
+    _previewTimer?.cancel();
+    _previewTimer = null;
     _repeatTimer?.cancel();
     _repeatTimer = null;
     if (_portal.isShowing) _portal.hide();
@@ -319,7 +337,7 @@ class _BornoKeyState extends State<BornoKey> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedScale(
-        scale: _pressed ? 0.91 : 1,
+        scale: _pressed ? 0.98 : 1,
         duration: Duration(milliseconds: _pressed ? 65 : 140),
         curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
         child: AnimatedContainer(

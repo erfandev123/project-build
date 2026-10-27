@@ -1,8 +1,35 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Native (non-web) fallback. The web build selects the richer implementation.
 class PlatformService {
   PlatformService._();
+
+  static const _keyboardChannel = MethodChannel(
+    'com.erfandev.bongo_board/keyboard',
+  );
+
+  static bool get isAndroid => defaultTargetPlatform == TargetPlatform.android;
+
+  static Future<void> openInputMethodSettings() async {
+    if (isAndroid) {
+      await _keyboardChannel.invokeMethod<void>('openInputMethodSettings');
+    }
+  }
+
+  static Future<void> showInputMethodPicker() async {
+    if (isAndroid) {
+      await _keyboardChannel.invokeMethod<void>('showInputMethodPicker');
+    }
+  }
+
+  static Future<bool> requestMicrophonePermission() async {
+    if (!isAndroid) return false;
+    return await _keyboardChannel.invokeMethod<bool>(
+          'requestMicrophonePermission',
+        ) ??
+        false;
+  }
 
   static void clickSound() {}
 

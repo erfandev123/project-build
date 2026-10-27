@@ -4,6 +4,14 @@ import 'dart:js_interop';
 class PlatformService {
   PlatformService._();
 
+  static bool get isAndroid => false;
+
+  static Future<void> openInputMethodSettings() async {}
+
+  static Future<void> showInputMethodPicker() async {}
+
+  static Future<bool> requestMicrophonePermission() async => false;
+
   static void clickSound() {
     try {
       _click();

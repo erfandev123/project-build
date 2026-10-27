@@ -30,6 +30,8 @@ class BornoKeyboard extends StatelessWidget {
     required this.onOpenThemes,
     required this.onOpenSettings,
     required this.onToggleSound,
+    this.voiceStatus = '',
+    this.onCloseVoice,
     this.onFeedback,
   });
 
@@ -55,6 +57,8 @@ class BornoKeyboard extends StatelessWidget {
   final VoidCallback onOpenThemes;
   final VoidCallback onOpenSettings;
   final VoidCallback onToggleSound;
+  final String voiceStatus;
+  final VoidCallback? onCloseVoice;
   final VoidCallback? onFeedback;
 
   @override
@@ -165,7 +169,42 @@ class BornoKeyboard extends StatelessWidget {
       child: Row(
         children: [
           Expanded(
-            child: showSuggestions
+            child: voiceStatus.isNotEmpty
+                ? Row(
+                    children: [
+                      Icon(Icons.mic_rounded, size: 15, color: skin.accent),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          voiceStatus,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: mode.isBangla
+                                ? 'HindSiliguri'
+                                : 'Manrope',
+                            fontSize: 11,
+                            color: skin.keyText,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints.tightFor(
+                          width: 28,
+                          height: 28,
+                        ),
+                        onPressed: onCloseVoice,
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: skin.keyHint,
+                        ),
+                      ),
+                    ],
+                  )
+                : showSuggestions
                 ? Row(
                     children: [
                       for (var i = 0; i < suggestions.length; i++) ...[
@@ -207,13 +246,15 @@ class BornoKeyboard extends StatelessWidget {
                     ),
                   ),
           ),
-          const SizedBox(width: 6),
-          _MicButton(
-            skin: skin,
-            onTap: onVoice,
-            soundOn: soundOn,
-            hapticsOn: hapticsOn,
-          ),
+          if (voiceStatus.isEmpty) ...[
+            const SizedBox(width: 6),
+            _MicButton(
+              skin: skin,
+              onTap: onVoice,
+              soundOn: soundOn,
+              hapticsOn: hapticsOn,
+            ),
+          ],
         ],
       ),
     );
@@ -541,7 +582,7 @@ class BornoKeyboard extends StatelessWidget {
     return BornoKey(
       skin: skin,
       label: label,
-      hint: hasChoices ? '⋯' : null,
+      hint: hasChoices ? key.characters[1] : null,
       height: height,
       soundOn: soundOn,
       hapticsOn: hapticsOn,
@@ -923,7 +964,7 @@ class _MicButtonState extends State<_MicButton> {
             onTapCancel: () => setState(() => _pressed = false),
             onTap: widget.onTap,
             child: AnimatedScale(
-              scale: _pressed ? 0.9 : 1,
+              scale: _pressed ? 0.98 : 1,
               duration: const Duration(milliseconds: 110),
               child: AnimatedContainer(
                 duration: const Duration(milliseconds: 120),
