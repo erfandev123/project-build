@@ -33,6 +33,9 @@ class BornoKeyboard extends StatelessWidget {
     this.voiceStatus = '',
     this.onCloseVoice,
     this.onFeedback,
+    this.onBackspaceSwipeStart,
+    this.onBackspaceSwipeUpdate,
+    this.onBackspaceSwipeEnd,
   });
 
   final KeyboardSkin skin;
@@ -60,6 +63,9 @@ class BornoKeyboard extends StatelessWidget {
   final String voiceStatus;
   final VoidCallback? onCloseVoice;
   final VoidCallback? onFeedback;
+  final VoidCallback? onBackspaceSwipeStart;
+  final ValueChanged<double>? onBackspaceSwipeUpdate;
+  final VoidCallback? onBackspaceSwipeEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -697,6 +703,9 @@ class BornoKeyboard extends StatelessWidget {
       iconSize: 18,
       semanticLabel: 'মুছুন',
       repeatOnHold: true,
+      onSwipeStart: onBackspaceSwipeStart,
+      onSwipeUpdate: onBackspaceSwipeUpdate,
+      onSwipeEnd: onBackspaceSwipeEnd,
       onTap: onBackspace,
     );
   }

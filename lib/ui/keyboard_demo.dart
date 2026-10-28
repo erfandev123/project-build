@@ -49,6 +49,8 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
   List<DemoMessage> _messages = List.of(_initialMessages);
   String _text = '';
   String _roman = '';
+  int _selectionLength = 0;
+  bool _backspaceSwipeRoman = false;
   InputMode _mode = InputMode.phonetic;
   KeyboardPage _page = KeyboardPage.letters;
   int _skinIndex = 0;
@@ -155,11 +157,15 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
   void _insertCharacter(String character) {
     if (character.isEmpty) return;
     if (_mode.isPhonetic && _isLatin(character)) {
-      setState(() => _roman += character);
+      setState(() {
+        _selectionLength = 0;
+        _roman += character;
+      });
       return;
     }
 
     setState(() {
+      _selectionLength = 0;
       if (_mode.isPhonetic && _roman.isNotEmpty) {
         _text = _withRomanCommitted();
         _roman = '';
@@ -175,6 +181,7 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
   }
 
   void _onBackspace() {
+    _selectionLength = 0;
     if (_mode.isPhonetic && _roman.isNotEmpty) {
       setState(() => _roman = _roman.substring(0, _roman.length - 1));
       return;
@@ -186,8 +193,53 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
     });
   }
 
+  void _beginBackspaceSwipe() {
+    _backspaceSwipeRoman = _mode.isPhonetic && _roman.isNotEmpty;
+    if (_selectionLength != 0) {
+      setState(() => _selectionLength = 0);
+    }
+  }
+
+  void _updateBackspaceSwipe(double dx) {
+    final steps = (-dx / 18).floor();
+    if (_backspaceSwipeRoman) {
+      final target = math.max(
+        0,
+        math.min(_roman.length, _roman.length - steps),
+      );
+      if (target != _roman.length) {
+        setState(() => _roman = _roman.substring(0, target));
+      }
+      return;
+    }
+    final max = _text.characters.length;
+    final count = math.max(0, math.min(max, steps));
+    if (count != _selectionLength) {
+      if (count > _selectionLength) PlatformService.haptic();
+      setState(() => _selectionLength = count);
+    }
+  }
+
+  void _endBackspaceSwipe() {
+    if (_backspaceSwipeRoman) {
+      _backspaceSwipeRoman = false;
+      return;
+    }
+    if (_selectionLength > 0) {
+      setState(() {
+        final chars = _text.characters;
+        _text = chars.take(chars.length - _selectionLength).join();
+        _selectionLength = 0;
+      });
+      PlatformService.haptic();
+    } else {
+      _onBackspace();
+    }
+  }
+
   void _onSpace() {
     setState(() {
+      _selectionLength = 0;
       if (_mode.isPhonetic && _roman.isNotEmpty) {
         _text = '${_withRomanCommitted()} ';
         _roman = '';
@@ -201,6 +253,7 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
     final cleaned = suggestion.trim();
     if (cleaned.isEmpty) return;
     setState(() {
+      _selectionLength = 0;
       if (_mode.isPhonetic && _roman.isNotEmpty) {
         _text += '$cleaned ';
         _roman = '';
@@ -231,6 +284,7 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
       _messages = [..._messages, DemoMessage(text, mine: true)];
       _text = '';
       _roman = '';
+      _selectionLength = 0;
       _page = KeyboardPage.letters;
     });
 
@@ -253,6 +307,7 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
       _messages = List.of(_initialMessages);
       _text = '';
       _roman = '';
+      _selectionLength = 0;
       _page = KeyboardPage.letters;
       _shift = false;
     });
@@ -264,6 +319,7 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
     setState(() {
       _text = _withRomanCommitted();
       _roman = '';
+      _selectionLength = 0;
       _mode = mode;
       _page = KeyboardPage.letters;
       _shift = false;
@@ -366,6 +422,7 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
     setState(() {
       final committed = _withRomanCommitted();
       _roman = '';
+      _selectionLength = 0;
       final needsSpace =
           committed.isNotEmpty && !RegExp(r'\s$').hasMatch(committed);
       _text = '$committed${needsSpace ? ' ' : ''}${phrase.trim()}';
@@ -457,6 +514,7 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
                       messages: _messages,
                       text: _displayText,
                       romanBuffer: _mode.isPhonetic ? _roman : '',
+                      selectionLength: _selectionLength,
                       canSend: _canSend,
                       onSend: _send,
                       onReset: _resetChat,
@@ -488,6 +546,9 @@ class _KeyboardDemoState extends State<KeyboardDemo> {
                     onToggleSound: _toggleSound,
                     voiceStatus: _voiceStatus,
                     onCloseVoice: _closeInlineVoice,
+                    onBackspaceSwipeStart: _beginBackspaceSwipe,
+                    onBackspaceSwipeUpdate: _updateBackspaceSwipe,
+                    onBackspaceSwipeEnd: _endBackspaceSwipe,
                   ),
                 ],
               ),

@@ -1,7 +1,18 @@
+import java.io.FileInputStream
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
+}
+
+// Use android/key.properties when it exists (recommended for Play Store builds),
+// otherwise fall back to the stable keystore committed for GitHub Actions.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    FileInputStream(keystorePropertiesFile).use { keystoreProperties.load(it) }
 }
 
 android {
@@ -29,11 +40,19 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file(keystoreProperties.getProperty("storeFile") ?: "borno-release.jks")
+            storePassword = keystoreProperties.getProperty("storePassword") ?: "bornoRelease2026"
+            keyAlias = keystoreProperties.getProperty("keyAlias") ?: "borno"
+            keyPassword = keystoreProperties.getProperty("keyPassword") ?: "bornoRelease2026"
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            // A stable key keeps update installs working across CI runs.
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

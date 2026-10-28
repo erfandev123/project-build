@@ -26,6 +26,9 @@ class BornoKey extends StatefulWidget {
     this.previewOn = true,
     this.onLongPress,
     this.repeatOnHold = false,
+    this.onSwipeStart,
+    this.onSwipeUpdate,
+    this.onSwipeEnd,
     this.emoji = false,
     this.fontSize,
     this.iconSize,
@@ -43,6 +46,9 @@ class BornoKey extends StatefulWidget {
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final bool repeatOnHold;
+  final VoidCallback? onSwipeStart;
+  final ValueChanged<double>? onSwipeUpdate;
+  final VoidCallback? onSwipeEnd;
   final bool action;
   final bool accent;
   final bool selected;
@@ -81,6 +87,8 @@ class _BornoKeyState extends State<BornoKey> {
   bool _pressed = false;
   bool _hovered = false;
   bool _skipNextTap = false;
+  bool _swiping = false;
+  double _swipeDx = 0;
 
   int? _choicePointer;
   Offset? _choiceStart;
@@ -253,7 +261,11 @@ class _BornoKeyState extends State<BornoKey> {
 
   void _onTapDown(TapDownDetails details) {
     if (_pressed) return;
-    setState(() => _pressed = true);
+    setState(() {
+      _pressed = true;
+      _swiping = false;
+      _swipeDx = 0;
+    });
     _previewTimer?.cancel();
     if (_canPreview) {
       _previewTimer = Timer(const Duration(milliseconds: 300), () {
@@ -292,6 +304,42 @@ class _BornoKeyState extends State<BornoKey> {
     }
   }
 
+  void _startSwipe(DragStartDetails details) {
+    if (widget.onSwipeStart == null) return;
+    _holdTimer?.cancel();
+    _holdTimer = null;
+    _previewTimer?.cancel();
+    _previewTimer = null;
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+    _skipNextTap = false;
+    if (_portal.isShowing) _portal.hide();
+    setState(() {
+      _swiping = true;
+      _swipeDx = 0;
+      _pressed = true;
+    });
+    if (widget.hapticsOn) PlatformService.haptic();
+    widget.onSwipeStart?.call();
+  }
+
+  void _updateSwipe(DragUpdateDetails details) {
+    if (!_swiping) return;
+    _swipeDx += details.delta.dx;
+    widget.onSwipeUpdate?.call(_swipeDx);
+  }
+
+  void _endSwipe([DragEndDetails? details]) {
+    if (!_swiping) return;
+    final callback = widget.onSwipeEnd;
+    setState(() {
+      _swiping = false;
+      _swipeDx = 0;
+      _pressed = false;
+    });
+    callback?.call();
+  }
+
   void _handleTap() {
     if (_skipNextTap) {
       _skipNextTap = false;
@@ -309,19 +357,30 @@ class _BornoKeyState extends State<BornoKey> {
   @override
   Widget build(BuildContext context) {
     final skin = widget.skin;
+    final active = _pressed || _swiping;
     final isAccent = widget.accent || widget.selected;
     final baseColor = isAccent
         ? skin.accent
         : (widget.action ? skin.actionKey : skin.key);
     final hoveredColor = Color.alphaBlend(
-      (skin.isLight ? Colors.white : Colors.white).withValues(
-        alpha: isAccent ? 0.06 : 0.05,
-      ),
+      Colors.white.withValues(alpha: isAccent ? 0.06 : 0.05),
       baseColor,
     );
-    final fill = _pressed
+    final fill = active
         ? skin.keyPressed
         : (_hovered ? hoveredColor : baseColor);
+    final outerFill = Color.alphaBlend(
+      Colors.black.withValues(alpha: skin.isLight ? 0.10 : 0.30),
+      fill,
+    );
+    final innerTop = Color.alphaBlend(
+      Colors.white.withValues(alpha: skin.isLight ? 0.42 : 0.085),
+      fill,
+    );
+    final innerBottom = Color.alphaBlend(
+      Colors.black.withValues(alpha: skin.isLight ? 0.015 : 0.035),
+      fill,
+    );
     final foreground = isAccent
         ? skin.onAccent
         : (widget.action ? skin.actionText : skin.keyText);
@@ -337,50 +396,64 @@ class _BornoKeyState extends State<BornoKey> {
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: AnimatedScale(
-        scale: _pressed ? 0.98 : 1,
-        duration: Duration(milliseconds: _pressed ? 65 : 140),
-        curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
+        scale: active ? 1.045 : 1,
+        duration: Duration(milliseconds: active ? 70 : 155),
+        curve: active ? Curves.easeOutCubic : Curves.easeOutBack,
         child: AnimatedContainer(
           key: _keyBoxKey,
-          duration: const Duration(milliseconds: 110),
+          duration: const Duration(milliseconds: 100),
           height: widget.height,
-          alignment: Alignment.center,
+          padding: EdgeInsets.all(widget.action ? 3.3 : 3),
           decoration: BoxDecoration(
-            color: fill,
-            borderRadius: BorderRadius.circular(widget.action ? 9 : 8),
-            border: Border.all(color: borderColor),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color.alphaBlend(
-                  Colors.white.withValues(alpha: skin.isLight ? 0.16 : 0.04),
-                  fill,
-                ),
-                fill,
-              ],
+            color: outerFill,
+            borderRadius: BorderRadius.circular(widget.action ? 10.5 : 9.5),
+            border: Border.all(
+              color: active ? skin.accent.withValues(alpha: 0.34) : borderColor,
             ),
-            boxShadow: _pressed
-                ? const []
+            boxShadow: active
+                ? [
+                    BoxShadow(
+                      color: skin.accent.withValues(alpha: 0.10),
+                      blurRadius: 10,
+                      spreadRadius: 0.4,
+                    ),
+                  ]
                 : [
                     BoxShadow(
                       color: Colors.black.withValues(
-                        alpha: skin.isLight ? 0.08 : 0.14,
+                        alpha: skin.isLight ? 0.08 : 0.18,
                       ),
-                      blurRadius: 1.5,
-                      offset: const Offset(0, 1.5),
+                      blurRadius: 2.2,
+                      offset: const Offset(0, 1.6),
                     ),
                   ],
           ),
-          child: _KeyFace(
-            label: widget.label,
-            hint: widget.hint,
-            icon: widget.icon,
-            foreground: foreground,
-            hintColor: hintColor,
-            emoji: widget.emoji,
-            fontSize: widget.fontSize,
-            iconSize: widget.iconSize,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 100),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [innerTop, innerBottom],
+              ),
+              borderRadius: BorderRadius.circular(widget.action ? 7.5 : 7),
+              border: Border.all(
+                color: skin.isLight
+                    ? const Color(0x0A172019)
+                    : const Color(0x0EFFFFFF),
+              ),
+            ),
+            child: _KeyFace(
+              label: widget.label,
+              hint: widget.hint,
+              icon: widget.icon,
+              foreground: foreground,
+              hintColor: hintColor,
+              emoji: widget.emoji,
+              fontSize: widget.fontSize,
+              iconSize: widget.iconSize,
+            ),
           ),
         ),
       ),
@@ -424,6 +497,16 @@ class _BornoKeyState extends State<BornoKey> {
             onTapCancel: _endPress,
             onTap: _handleTap,
             onLongPress: widget.onLongPress == null ? null : _handleLongPress,
+            onHorizontalDragStart: widget.onSwipeStart == null
+                ? null
+                : _startSwipe,
+            onHorizontalDragUpdate: widget.onSwipeUpdate == null
+                ? null
+                : _updateSwipe,
+            onHorizontalDragEnd: widget.onSwipeEnd == null ? null : _endSwipe,
+            onHorizontalDragCancel: widget.onSwipeEnd == null
+                ? null
+                : () => _endSwipe(),
             child: keyVisual,
           ),
         ),
@@ -585,43 +668,58 @@ class _KeyPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final size = math.max(
-      42.0,
-      math.min(64.0, 22.0 + label.runes.length * 14.0),
+      46.0,
+      math.min(72.0, 24.0 + label.runes.length * 14.0),
     );
     final isBengali = _bengali.hasMatch(label);
-    return Container(
-      constraints: BoxConstraints(minWidth: size, minHeight: 52),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: skin.keyPressed,
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: skin.accent.withValues(alpha: 0.45)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.32),
-            blurRadius: 24,
-            offset: const Offset(0, 10),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOutBack,
+      builder: (context, value, child) {
+        return Opacity(
+          opacity: value.clamp(0.0, 1.0),
+          child: Transform.scale(
+            scale: 0.88 + 0.12 * value,
+            alignment: Alignment.bottomCenter,
+            child: child,
           ),
-          if (!skin.isLight)
+        );
+      },
+      child: Container(
+        constraints: BoxConstraints(minWidth: size, minHeight: 52),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: skin.keyPressed,
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: skin.accent.withValues(alpha: 0.45)),
+          boxShadow: [
             BoxShadow(
-              color: skin.accent.withValues(alpha: 0.08),
-              blurRadius: 16,
+              color: Colors.black.withValues(alpha: 0.32),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
             ),
-        ],
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontFamily: emoji
-              ? null
-              : isBengali
-              ? 'NotoBengali'
-              : 'Manrope',
-          fontSize: emoji ? 26 : (isBengali ? 26 : 23),
-          height: 1,
-          fontWeight: FontWeight.w600,
-          color: skin.keyText,
+            if (!skin.isLight)
+              BoxShadow(
+                color: skin.accent.withValues(alpha: 0.08),
+                blurRadius: 16,
+              ),
+          ],
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontFamily: emoji
+                ? null
+                : isBengali
+                ? 'NotoBengali'
+                : 'Manrope',
+            fontSize: emoji ? 26 : (isBengali ? 26 : 23),
+            height: 1,
+            fontWeight: FontWeight.w600,
+            color: skin.keyText,
+          ),
         ),
       ),
     );

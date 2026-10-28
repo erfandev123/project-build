@@ -21,6 +21,7 @@ void main() {
     WidgetTester tester, {
     bool shift = false,
     Size size = const Size(360, 800),
+    List<String>? swipeEvents,
   }) async {
     useSurface(tester, size);
     final inserted = <String>[];
@@ -29,7 +30,11 @@ void main() {
         home: Scaffold(
           body: Align(
             alignment: Alignment.bottomCenter,
-            child: _KeyboardHarness(inserted: inserted, initialShift: shift),
+            child: _KeyboardHarness(
+              inserted: inserted,
+              initialShift: shift,
+              swipeEvents: swipeEvents,
+            ),
           ),
         ),
       ),
@@ -325,14 +330,47 @@ void main() {
       expect(inserted.length, 1);
       expect(inserted.single, '্র');
     });
+
+    testWidgets('backspace swipe reports leftward drag and end', (
+      tester,
+    ) async {
+      final events = <String>[];
+      await pumpKeyboard(tester, swipeEvents: events);
+
+      final backspace = find.byIcon(Icons.backspace_outlined);
+      expect(backspace, findsOneWidget);
+
+      final gesture = await tester.startGesture(tester.getCenter(backspace));
+      await tester.pump(const Duration(milliseconds: 20));
+      await gesture.moveBy(const Offset(-30, 0));
+      await tester.pump(const Duration(milliseconds: 20));
+      await gesture.moveBy(const Offset(-30, 0));
+      await tester.pump(const Duration(milliseconds: 20));
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(events.first, 'start');
+      expect(events.last, 'end');
+      final updates = events
+          .where((event) => event.startsWith('update:'))
+          .map((event) => double.parse(event.substring(7)))
+          .toList();
+      expect(updates, isNotEmpty);
+      expect(updates.last, lessThan(0));
+    });
   });
 }
 
 class _KeyboardHarness extends StatefulWidget {
-  const _KeyboardHarness({required this.inserted, this.initialShift = false});
+  const _KeyboardHarness({
+    required this.inserted,
+    this.initialShift = false,
+    this.swipeEvents,
+  });
 
   final List<String> inserted;
   final bool initialShift;
+  final List<String>? swipeEvents;
 
   @override
   State<_KeyboardHarness> createState() => _KeyboardHarnessState();
@@ -356,6 +394,15 @@ class _KeyboardHarnessState extends State<_KeyboardHarness> {
       canSend: false,
       onCharacter: widget.inserted.add,
       onBackspace: () {},
+      onBackspaceSwipeStart: widget.swipeEvents == null
+          ? null
+          : () => widget.swipeEvents!.add('start'),
+      onBackspaceSwipeUpdate: widget.swipeEvents == null
+          ? null
+          : (dx) => widget.swipeEvents!.add('update:$dx'),
+      onBackspaceSwipeEnd: widget.swipeEvents == null
+          ? null
+          : () => widget.swipeEvents!.add('end'),
       onShift: () => setState(() => _shift = !_shift),
       onSpace: () {},
       onSend: () {},

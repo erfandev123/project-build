@@ -17,6 +17,7 @@ class ChatPreview extends StatefulWidget {
     required this.messages,
     required this.text,
     required this.romanBuffer,
+    this.selectionLength = 0,
     required this.canSend,
     required this.onSend,
     required this.onReset,
@@ -27,6 +28,7 @@ class ChatPreview extends StatefulWidget {
   final List<DemoMessage> messages;
   final String text;
   final String romanBuffer;
+  final int selectionLength;
   final bool canSend;
   final VoidCallback onSend;
   final VoidCallback onReset;
@@ -105,6 +107,7 @@ class _ChatPreviewState extends State<ChatPreview> {
             skin: skin,
             text: widget.text,
             romanBuffer: widget.romanBuffer,
+            selectionLength: widget.selectionLength,
             canSend: widget.canSend,
             onSend: widget.onSend,
             onTap: widget.onRequestFocus,
@@ -361,6 +364,7 @@ class _Composer extends StatelessWidget {
     required this.skin,
     required this.text,
     required this.romanBuffer,
+    required this.selectionLength,
     required this.canSend,
     required this.onSend,
     required this.onTap,
@@ -369,6 +373,7 @@ class _Composer extends StatelessWidget {
   final KeyboardSkin skin;
   final String text;
   final String romanBuffer;
+  final int selectionLength;
   final bool canSend;
   final VoidCallback onSend;
   final VoidCallback onTap;
@@ -435,7 +440,41 @@ class _Composer extends StatelessWidget {
                           ],
                         ),
                       ),
-                    _LiveText(text: text, skin: skin, onTap: onTap),
+                    if (selectionLength > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: skin.accent.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                              color: skin.accent.withValues(alpha: 0.24),
+                            ),
+                          ),
+                          child: Text(
+                            '$selectionLength অক্ষর নির্বাচিত · ছেড়ে দিলে মুছে যাবে',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontFamily: 'HindSiliguri',
+                              fontSize: 8.5,
+                              height: 1.25,
+                              fontWeight: FontWeight.w600,
+                              color: skin.accent,
+                            ),
+                          ),
+                        ),
+                      ),
+                    _LiveText(
+                      text: text,
+                      skin: skin,
+                      selectionLength: selectionLength,
+                      onTap: onTap,
+                    ),
                   ],
                 ),
               ),
@@ -453,11 +492,13 @@ class _LiveText extends StatefulWidget {
   const _LiveText({
     required this.text,
     required this.skin,
+    required this.selectionLength,
     required this.onTap,
   });
 
   final String text;
   final KeyboardSkin skin;
+  final int selectionLength;
   final VoidCallback onTap;
 
   @override
@@ -488,6 +529,24 @@ class _LiveTextState extends State<_LiveText> {
   Widget build(BuildContext context) {
     final skin = widget.skin;
     final isEmpty = widget.text.isEmpty;
+    final characters = widget.text.characters;
+    final requested = widget.selectionLength;
+    final selected = requested <= 0
+        ? 0
+        : (requested > characters.length ? characters.length : requested);
+    final plainText = selected > 0
+        ? characters.take(characters.length - selected).join()
+        : widget.text;
+    final selectedText = selected > 0
+        ? characters.skip(characters.length - selected).join()
+        : '';
+    final baseStyle = TextStyle(
+      fontFamily: 'HindSiliguri',
+      fontSize: isEmpty ? 13.5 : 15,
+      height: 1.5,
+      fontWeight: FontWeight.w500,
+      color: isEmpty ? skin.muted : skin.screenText,
+    );
     return ConstrainedBox(
       constraints: const BoxConstraints(minHeight: 26, maxHeight: 76),
       child: SingleChildScrollView(
@@ -498,16 +557,20 @@ class _LiveTextState extends State<_LiveText> {
           child: RichText(
             text: TextSpan(
               children: [
-                TextSpan(
-                  text: isEmpty ? 'বাংলায় কিছু লিখুন…' : widget.text,
-                  style: TextStyle(
-                    fontFamily: 'HindSiliguri',
-                    fontSize: isEmpty ? 13.5 : 15,
-                    height: 1.5,
-                    fontWeight: FontWeight.w500,
-                    color: isEmpty ? skin.muted : skin.screenText,
+                if (selected > 0) ...[
+                  TextSpan(text: plainText, style: baseStyle),
+                  TextSpan(
+                    text: selectedText,
+                    style: baseStyle.copyWith(
+                      backgroundColor: skin.accent.withValues(alpha: 0.30),
+                      color: skin.screenText,
+                    ),
                   ),
-                ),
+                ] else
+                  TextSpan(
+                    text: isEmpty ? 'বাংলায় কিছু লিখুন…' : widget.text,
+                    style: baseStyle,
+                  ),
                 WidgetSpan(
                   alignment: PlaceholderAlignment.middle,
                   child: Padding(

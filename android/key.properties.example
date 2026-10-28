@@ -1,0 +1,8 @@
+# Copy this file to android/key.properties to sign with your own key.
+# Never commit android/key.properties.
+#
+# Paths are resolved relative to android/app/.
+storeFile=borno-release.jks
+storePassword=bornoRelease2026
+keyAlias=borno
+keyPassword=bornoRelease2026
